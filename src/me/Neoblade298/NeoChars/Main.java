@@ -79,6 +79,7 @@ public class Main extends JavaPlugin implements Listener {
 
 	@EventHandler
 	public void onInteract(PlayerInteractEntityEvent e) {
+		if (!(e.getRightClicked() instanceof Player)) return;
 		Player clicked = (Player) e.getRightClicked();
 
 		// Only let it happen once
