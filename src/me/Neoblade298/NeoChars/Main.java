@@ -79,11 +79,6 @@ public class Main extends JavaPlugin implements Listener {
 
 	@EventHandler
 	public void onInteract(PlayerInteractEntityEvent e) {
-		// Make sure we're interacting with a player in the quest world
-		if (!(e.getRightClicked() instanceof Player)
-				|| !(e.getPlayer().getWorld().getName().equalsIgnoreCase("Argyll"))) {
-			return;
-		}
 		Player clicked = (Player) e.getRightClicked();
 
 		// Only let it happen once
