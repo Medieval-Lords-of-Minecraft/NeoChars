@@ -1,7 +1,8 @@
 package me.Neoblade298.NeoChars;
 
+import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.HashMap;
-
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
@@ -20,8 +21,17 @@ import com.sucy.skill.api.player.PlayerData;
 import me.Neoblade298.NeoProfessions.Managers.ProfessionManager;
 import me.Neoblade298.NeoProfessions.PlayerProfessions.Profession;
 import me.Neoblade298.NeoProfessions.PlayerProfessions.ProfessionType;
+import net.md_5.bungee.api.chat.ComponentBuilder;
+import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.TextComponent;
+import net.md_5.bungee.api.chat.ComponentBuilder.FormatRetention;
+import net.md_5.bungee.api.chat.hover.content.Text;
 
 public class Main extends JavaPlugin implements Listener {
+	private static ArrayList<String> attrs = new ArrayList<String>();
+	private static ArrayList<String> onlineAttrs = new ArrayList<String>();
+	private static HashMap<String, String> attrKeyToDisplay = new HashMap<String, String>();
+	private static final DecimalFormat df = new DecimalFormat("#.##");
 
 	public void onEnable() {
 		Bukkit.getServer().getLogger().info("NeoChars Enabled");
@@ -29,6 +39,21 @@ public class Main extends JavaPlugin implements Listener {
 
 		// Get command listener
 		this.getCommand("char").setExecutor(new Commands(this));
+		
+		attrs.add("Strength");
+		attrs.add("Dexterity");
+		attrs.add("Intelligence");
+		attrs.add("Spirit");
+		attrs.add("Endurance");
+		onlineAttrs.add("maxhp");
+		// onlineAttrs.add("maxmp"); No way to get this via gear atm
+		onlineAttrs.add("HealthRegen");
+		onlineAttrs.add("ResourceRegen");
+		
+		attrKeyToDisplay.put("maxhp", "Max HP");
+		attrKeyToDisplay.put("maxmp", "Bonus Resource");
+		attrKeyToDisplay.put("HealthRegen", "Health Regen");
+		attrKeyToDisplay.put("ResourceRegen", "Resource Regen");
 	}
 
 	public void onDisable() {
@@ -50,21 +75,6 @@ public class Main extends JavaPlugin implements Listener {
 		sendMessage(recipient, "&7-- &e" + viewed.getName() + " &6[Lv " + pLvl + " " + pClass + "] &7(" + xp
 				+ " / " + reqxp + " XP) --");
 		
-		// Professions
-		HashMap<ProfessionType, Profession> account = ProfessionManager.getAccount(viewed.getUniqueId());
-		if (account != null) {
-			Profession harv = account.get(ProfessionType.HARVESTER);
-			Profession stone = account.get(ProfessionType.STONECUTTER);
-			Profession craft = account.get(ProfessionType.CRAFTER);
-			Profession log = account.get(ProfessionType.LOGGER);
-			String line = "&7-- &6[Lv " + harv.getLevel() + " " + harv.getType().getDisplay() + "] ";
-			line += "&6[Lv " + log.getLevel() + " " + log.getType().getDisplay() + "] &7--";
-			sendMessage(recipient, line);
-			line = "&7-- &6[Lv " + stone.getLevel() + " " + stone.getType().getDisplay() + "] ";
-			line += "&6[Lv " + craft.getLevel() + " " + craft.getType().getDisplay() + "] &7--";
-			sendMessage(recipient, line);
-		}
-		
 		// Attributes
 		String attr = "&e" + pData.getAttribute("Strength") + " &cSTR&7 | &e"
 				+ pData.getAttribute("Dexterity") + " &cDEX&7 | &e" + pData.getAttribute("Intelligence")
@@ -74,7 +84,54 @@ public class Main extends JavaPlugin implements Listener {
 			attr += " | &e" + (int) ((Player) viewed).getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue() + " &cHP";
 		}
 		sendMessage(recipient, attr);
-				
+		
+		ComponentBuilder b = new ComponentBuilder("§7[Hover to show complete stats] ")
+				.event(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text(getStatsHover(pData, viewed))));
+		if (viewed instanceof Player) {
+			b.append(new TextComponent("§7[Hover to show professions]"), FormatRetention.NONE)
+			.event(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text(getProfessionsHover(viewed))));
+		}
+		recipient.spigot().sendMessage(b.create());
+	}
+	
+	private String getStatsHover(PlayerData data, OfflinePlayer viewed) {
+		String hover = "§cFull Stats:";
+		for (String attr : attrs) {
+			hover += "\n&6" + attr + "&7 - &e" + data.getAttribute(attr);
+		}
+		if (viewed instanceof Player) {
+			for (String attr : onlineAttrs) {
+				double effective = 0;
+				hover += "\n&6" + attrKeyToDisplay.getOrDefault(attr, attr) + "&7 - &e" + data.getAttribute(attr);
+				switch (attr) {
+				case "HealthRegen":
+					effective = data.getAttribute(attr) * 0.1;
+					hover += " &7(&e+" + df.format(effective) + " hp/s&7)";
+					break;
+				case "ResourceRegen":
+					effective = data.getAttribute(attr) * 0.01;
+					hover += " &7(&e+" + df.format(effective) + "% r/s&7)";
+					break;
+				}
+			}
+		}
+		return ChatColor.translateAlternateColorCodes('&', hover);
+	}
+	
+	private String getProfessionsHover(OfflinePlayer viewed) {
+		HashMap<ProfessionType, Profession> account = ProfessionManager.getAccount(viewed.getUniqueId());
+		String line = "§cProfession Levels:";
+		if (account != null) {
+			Profession harv = account.get(ProfessionType.HARVESTER);
+			Profession stone = account.get(ProfessionType.STONECUTTER);
+			Profession craft = account.get(ProfessionType.CRAFTER);
+			Profession log = account.get(ProfessionType.LOGGER);
+			line += "\n§6Lv " + harv.getLevel() + " " + harv.getType().getDisplay();
+			line += "\n§6Lv " + log.getLevel() + " " + log.getType().getDisplay();
+			line += "\n§6Lv " + stone.getLevel() + " " + stone.getType().getDisplay();
+			line += "\n§6Lv " + craft.getLevel() + " " + craft.getType().getDisplay();
+		}
+		return line;
 	}
 
 	@EventHandler
